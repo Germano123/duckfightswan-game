@@ -1,0 +1,11 @@
+{
+  "name": "com.cardinal.terrain",
+  "version": "0.1.0",
+  "displayName": "Cardinal Terrain Integration",
+  "description": "Integration package for Cardinal Ecological Simulation System and Duck Fight Swans terrain generation.",
+  "unity": "2022.3",
+  "author": {
+    "name": "Cardinal Dev Tools Team"
+  },
+  "dependencies": {}
+}

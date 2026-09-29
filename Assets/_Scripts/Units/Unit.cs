@@ -130,6 +130,11 @@ namespace DuckFightSwan.Units
                 movement.Initialize(baseStats);
             }
 
+            if (GetComponent<FloatingHealthBar>() == null)
+            {
+                gameObject.AddComponent<FloatingHealthBar>();
+            }
+
             health.OnDeath += HandleDeath;
         }
 
@@ -189,8 +194,9 @@ namespace DuckFightSwan.Units
             if (moveTargetPosition.HasValue)
             {
                 movement.MoveTowards(moveTargetPosition.Value);
-                if (Vector3.Distance(transform.position, moveTargetPosition.Value) < 0.2f)
+                if (Vector3.Distance(transform.position, moveTargetPosition.Value) <= 0.05f)
                 {
+                    transform.position = moveTargetPosition.Value;
                     moveTargetPosition = null;
                 }
             }
@@ -240,6 +246,14 @@ namespace DuckFightSwan.Units
                     {
                         damageMod = 1.15f;
                     }
+                    break;
+                case Terrain.TerrainType.Mud:
+                    // Lama: instabilidade na base (-10% dano físico)
+                    damageMod = 0.90f;
+                    break;
+                case Terrain.TerrainType.River:
+                    // Rio: arrasto de correnteza (-15% dano em combate aquático)
+                    damageMod = 0.85f;
                     break;
             }
 

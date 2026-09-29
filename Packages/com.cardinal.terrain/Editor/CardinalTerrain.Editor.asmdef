@@ -1,0 +1,19 @@
+{
+  "name": "CardinalTerrain.Editor",
+  "rootNamespace": "Cardinal.TerrainEngine.Editor",
+  "references": [
+    "CardinalTerrain",
+    "DuckFightSwan"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

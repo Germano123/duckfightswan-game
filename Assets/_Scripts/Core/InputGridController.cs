@@ -51,6 +51,12 @@ namespace DuckFightSwan.Core
 
         private void Update()
         {
+            // Bloqueia qualquer input e seleção no grid durante o turno das tropas inimigas
+            if (MatchManager.Instance != null && MatchManager.Instance.IsEnemyTurn)
+            {
+                return;
+            }
+
             // Evita processar cliques no grid quando o jogador interage com elementos de UI
             if (UnityEngine.EventSystems.EventSystem.current != null && 
                 UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject())
@@ -176,6 +182,13 @@ namespace DuckFightSwan.Core
             if (deltaX > 1 || deltaZ > 1)
             {
                 Debug.LogWarning("[InputGridController] Bloco muito distante. Apenas movimentação adjacente é permitida por clique.");
+                return false;
+            }
+
+            // Regra ecológico-tática: Lagos profundos são intransitáveis para tropas terrestres
+            if (targetTile.Type == TerrainType.Lake)
+            {
+                Debug.LogWarning("[InputGridController] Movimento inválido! Não é possível entrar em lagos profundos.");
                 return false;
             }
 

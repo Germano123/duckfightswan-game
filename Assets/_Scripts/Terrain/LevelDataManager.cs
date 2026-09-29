@@ -65,6 +65,20 @@ namespace DuckFightSwan.Terrain
         }
 
         /// <summary>
+        /// Retorna o ano histórico/narrativo correspondente à época da simulação Cardinal na fase.
+        /// </summary>
+        public static int GetEpochYearForPhase(int phase)
+        {
+            switch (phase)
+            {
+                case 1: return 1;
+                case 2: return 15;
+                case 3: return 30;
+                default: return 30 + (phase - 3) * 15;
+            }
+        }
+
+        /// <summary>
         /// Salva as informações do tabuleiro e das tropas ativas para a fase indicada.
         /// </summary>
         public static void SaveLevel(int phase, LevelSaveData data)

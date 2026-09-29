@@ -22,19 +22,26 @@ namespace DuckFightSwan.Units
         /// </summary>
         public void MoveTowards(Vector3 targetPosition)
         {
-            Vector3 direction = (targetPosition - transform.position);
-            direction.y = 0f; // Mantém movimento plano horizontal
+            float distance = Vector3.Distance(transform.position, targetPosition);
 
-            if (direction.magnitude > arrivalThreshold)
+            if (distance > arrivalThreshold)
             {
-                direction.Normalize();
-                transform.position += direction * (slideSpeed * Time.deltaTime);
+                // Interpolação suave em 3 dimensões (X, Y do degrau de relevo, Z)
+                transform.position = Vector3.MoveTowards(transform.position, targetPosition, slideSpeed * Time.deltaTime);
 
-                // Rotaciona a unidade na direção do deslocamento
-                if (direction != Vector3.zero)
+                // Orientação rotacional da unidade apenas no plano horizontal
+                Vector3 horizontalDir = targetPosition - transform.position;
+                horizontalDir.y = 0f;
+
+                if (horizontalDir.sqrMagnitude > 0.001f)
                 {
-                    transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(direction), Time.deltaTime * 10f);
+                    Quaternion targetRot = Quaternion.LookRotation(horizontalDir.normalized);
+                    transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, Time.deltaTime * 10f);
                 }
+            }
+            else
+            {
+                transform.position = targetPosition;
             }
         }
     }

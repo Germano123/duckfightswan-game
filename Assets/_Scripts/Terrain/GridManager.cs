@@ -139,6 +139,13 @@ namespace DuckFightSwan.Terrain
                         float visualHeight = height * heightStep + 1.0f;
                         tileObj.transform.localScale = new Vector3(0.95f, visualHeight, 0.95f);
                         tileObj.transform.localPosition = new Vector3(x, visualHeight / 2f - 0.5f, z);
+
+                        // Aplica cor temática baseada no tipo de terreno da Cardinal
+                        Renderer renderer = tileObj.GetComponentInChildren<Renderer>();
+                        if (renderer != null)
+                        {
+                            renderer.material.color = GetTerrainColor(type);
+                        }
                     }
 
                     // Cria o nó lógico
@@ -147,6 +154,23 @@ namespace DuckFightSwan.Terrain
             }
 
             Debug.Log($"[GridManager] Tabuleiro lógico de {width}x{depth} gerado com sucesso.");
+        }
+
+        /// <summary>
+        /// Paleta de cores para representação visual dos tipos de terreno derivados da simulação Cardinal.
+        /// </summary>
+        public static Color GetTerrainColor(TerrainType type)
+        {
+            switch (type)
+            {
+                case TerrainType.Field:    return new Color(0.38f, 0.68f, 0.28f); // Grama / Planície
+                case TerrainType.Forest:   return new Color(0.12f, 0.42f, 0.16f); // Floresta verde escuro
+                case TerrainType.Mountain: return new Color(0.55f, 0.55f, 0.58f); // Rocha cinza
+                case TerrainType.River:    return new Color(0.20f, 0.55f, 0.85f); // Água de rio
+                case TerrainType.Lake:     return new Color(0.08f, 0.30f, 0.65f); // Lago profundo
+                case TerrainType.Mud:      return new Color(0.42f, 0.30f, 0.20f); // Lamaçais
+                default:                   return Color.gray;
+            }
         }
 
         public TileNode GetNodeAt(int x, int z)
@@ -242,6 +266,9 @@ namespace DuckFightSwan.Terrain
                     TileNode neighbor = GetNodeAt(startNode.X + dx, startNode.Z + dz);
                     if (neighbor != null && neighbor.CurrentUnit == null)
                     {
+                        // Regra ecológico-tática: Lagos profundos são intransitáveis para tropas terrestres
+                        if (neighbor.Type == TerrainType.Lake) continue;
+
                         // Regra: Terrenos com 2 ou mais de altura são inalcançáveis
                         if (neighbor.Height < 2)
                         {

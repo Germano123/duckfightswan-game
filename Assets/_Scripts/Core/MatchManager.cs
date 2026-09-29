@@ -24,6 +24,7 @@ namespace DuckFightSwan.Core
 
         public int CurrentPhase => currentPhase;
         public bool IsSimulationActive => isSimulationActive;
+        public bool IsEnemyTurn { get; private set; }
         public int ActiveDucksCount => activeDucks.Count;
         public int ActiveSwansCount => activeSwans.Count;
 
@@ -53,6 +54,7 @@ namespace DuckFightSwan.Core
         public void PrepareMatch()
         {
             isSimulationActive = false;
+            IsEnemyTurn = false;
             activeDucks.Clear();
             activeSwans.Clear();
 
@@ -74,7 +76,8 @@ namespace DuckFightSwan.Core
                 }
             }
 
-            Debug.Log($"[MatchManager] Fase de preparação da partida {currentPhase} iniciada.");
+            int epochYear = LevelDataManager.GetEpochYearForPhase(currentPhase);
+            Debug.Log($"[MatchManager] Fase de preparação da partida {currentPhase} iniciada (Ano {epochYear} do Conflito no Vale).");
         }
 
         /// <summary>
@@ -227,6 +230,7 @@ namespace DuckFightSwan.Core
         private void EndMatch(bool playerWon)
         {
             isSimulationActive = false;
+            IsEnemyTurn = false;
             int coinsEarned = playerWon ? 100 : 40;
 
             Debug.Log($"[MatchManager] Partida Encerrada. Vitória do Jogador: {playerWon}. Moedas Ganhas: {coinsEarned}");
@@ -252,12 +256,20 @@ namespace DuckFightSwan.Core
         /// </summary>
         public void EndTurn()
         {
-            if (!isSimulationActive) return;
+            if (!isSimulationActive || IsEnemyTurn) return;
+
+            // Deseleciona qualquer unidade e limpa menus de ação abertos antes de passar a vez
+            if (InputGridController.Instance != null)
+            {
+                InputGridController.Instance.Deselect();
+            }
+
             StartCoroutine(ExecuteEnemyTurn());
         }
 
         private System.Collections.IEnumerator ExecuteEnemyTurn()
         {
+            IsEnemyTurn = true;
             Debug.Log("[MatchManager] Turno do Inimigo Iniciado.");
 
             // Desativa temporariamente interações da câmera
@@ -332,6 +344,7 @@ namespace DuckFightSwan.Core
                 }
             }
 
+            IsEnemyTurn = false;
             Debug.Log("[MatchManager] Turno do Jogador Iniciado. Ações restauradas.");
             SaveCurrentState();
         }

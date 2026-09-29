@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 45858fb24462c604bb449547bedda10f, type: 3}
+  m_Name: Unit.Swan.Warrior
+  m_EditorClassIdentifier: 
+  classType: 0
+  modelPrefab: {fileID: 569662687756873524, guid: a1aec32180f9967428ec5d705d37b9a8, type: 3}
+  maxHealth: 100
+  defense: 5
+  damage: 10
+  range: 1
+  seekRange: 10
+  attackCooldown: 1.5
+  speed: 3
+  wanderRadius: 5

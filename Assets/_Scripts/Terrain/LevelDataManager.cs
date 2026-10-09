@@ -24,6 +24,7 @@ namespace DuckFightSwan.Terrain
         public int currentHealth;
         public int level = 1;
         public int xp = 0;
+        public int rank = 1;
     }
 
     [System.Serializable]
@@ -49,11 +50,88 @@ namespace DuckFightSwan.Terrain
     /// </summary>
     public static class LevelDataManager
     {
-        private static string ProfilePath => Path.Combine(Application.dataPath, "player_profile.json");
+        public static string DataDirectory => Path.Combine(Application.dataPath, "_Data");
+        public static string LevelsDirectory => Path.Combine(DataDirectory, "Levels");
+        public static string EpochsDirectory => Path.Combine(DataDirectory, "Epochs");
+        public static string ProfilesDirectory => Path.Combine(DataDirectory, "Profiles");
 
-        private static string GetSavePathForPhase(int phase)
+        private static string ProfilePath
         {
-            return Path.Combine(Application.dataPath, $"level_save_{phase}.json");
+            get
+            {
+                if (!Directory.Exists(ProfilesDirectory)) Directory.CreateDirectory(ProfilesDirectory);
+                string newPath = Path.Combine(ProfilesDirectory, "player_profile.json");
+                if (File.Exists(newPath)) return newPath;
+                string legacyPath = Path.Combine(Application.dataPath, "player_profile.json");
+                if (File.Exists(legacyPath)) return legacyPath;
+                return newPath;
+            }
+        }
+
+        public static string GetSavePathForPhase(int phase)
+        {
+            if (!Directory.Exists(LevelsDirectory)) Directory.CreateDirectory(LevelsDirectory);
+            string newPath = Path.Combine(LevelsDirectory, $"level_save_{phase}.json");
+            if (File.Exists(newPath)) return newPath;
+            string legacyPath = Path.Combine(Application.dataPath, $"level_save_{phase}.json");
+            if (File.Exists(legacyPath)) return legacyPath;
+            return newPath;
+        }
+
+        public static string GetEpochPath(int year)
+        {
+            if (!Directory.Exists(EpochsDirectory)) Directory.CreateDirectory(EpochsDirectory);
+            string newPath = Path.Combine(EpochsDirectory, $"level_save_epoch_{year}.json");
+            if (File.Exists(newPath)) return newPath;
+            string legacyPath = Path.Combine(Application.dataPath, $"level_save_epoch_{year}.json");
+            if (File.Exists(legacyPath)) return legacyPath;
+            return newPath;
+        }
+
+        /// <summary>
+        /// Carrega os dados do snapshot de época do Cardinal (Ano 1, 15, 30, etc.).
+        /// Possui fallback transparente para o arquivo de fase equivalente se o arquivo de época não existir.
+        /// </summary>
+        public static LevelSaveData LoadEpoch(int year)
+        {
+            string epochPath = GetEpochPath(year);
+            if (File.Exists(epochPath))
+            {
+                try
+                {
+                    string json = File.ReadAllText(epochPath);
+                    LevelSaveData data = JsonUtility.FromJson<LevelSaveData>(json);
+                    Debug.Log($"[LevelDataManager] Época do Ano {year} carregada com sucesso de: {epochPath} ({data.tiles.Count} tiles).");
+                    return data;
+                }
+                catch (System.Exception ex)
+                {
+                    Debug.LogError($"[LevelDataManager] Erro ao carregar época do Ano {year}: {ex.Message}");
+                }
+            }
+
+            // Fallback por fase
+            int phase = (year == 1) ? 1 : ((year == 15) ? 2 : 3);
+            Debug.Log($"[LevelDataManager] level_save_epoch_{year}.json não encontrado. Tentando carregar fase {phase} como fallback...");
+            return LoadLevel(phase);
+        }
+
+        /// <summary>
+        /// Salva diretamente um snapshot de época (level_save_epoch_{year}.json).
+        /// </summary>
+        public static void SaveEpoch(int year, LevelSaveData data)
+        {
+            try
+            {
+                string path = GetEpochPath(year);
+                string json = JsonUtility.ToJson(data, true);
+                File.WriteAllText(path, json);
+                Debug.Log($"[LevelDataManager] Época do Ano {year} salva com sucesso em: {path}");
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogError($"[LevelDataManager] Erro ao salvar época do Ano {year}: {ex.Message}");
+            }
         }
 
         /// <summary>
@@ -79,6 +157,42 @@ namespace DuckFightSwan.Terrain
         }
 
         /// <summary>
+        /// Retorna o nível recomendado para os gansos inimigos de acordo com a fase/ano para balancear o desafio.
+        /// </summary>
+        public static int GetEnemyLevelForPhase(int phase)
+        {
+            if (phase <= 1) return 1;
+            if (phase == 2) return 3;
+            if (phase == 3) return 5;
+            return 1 + (phase - 1) * 2;
+        }
+
+        /// <summary>
+        /// Retorna a patente militar recomendada para os gansos inimigos de acordo com a fase/ano.
+        /// </summary>
+        public static MilitaryRank GetEnemyRankForPhase(int phase)
+        {
+            if (phase <= 1) return MilitaryRank.Recruit;
+            if (phase == 2) return MilitaryRank.Veteran;
+            if (phase == 3) return MilitaryRank.Elite;
+            return MilitaryRank.Commander;
+        }
+
+        /// <summary>
+        /// Retorna a dimensão de grid oficial configurada para a respectiva fase da demo.
+        /// </summary>
+        public static int GetPhaseGridSize(int phase)
+        {
+            switch (phase)
+            {
+                case 1: return 7;
+                case 2: return 10;
+                case 3: return 12;
+                default: return 12;
+            }
+        }
+
+        /// <summary>
         /// Salva as informações do tabuleiro e das tropas ativas para a fase indicada.
         /// </summary>
         public static void SaveLevel(int phase, LevelSaveData data)
@@ -97,155 +211,191 @@ namespace DuckFightSwan.Terrain
         }
 
         /// <summary>
-        /// Carrega os dados de salvamento da fase indicada. Retorna e salva o design padrão/procedural se o arquivo não existir.
+        /// Carrega os dados de salvamento da fase indicada. Retorna e salva o design amostrado do Cardinal se não existir ou se as dimensões forem atualizadas.
         /// </summary>
         public static LevelSaveData LoadLevel(int phase)
         {
-            if (!File.Exists(GetSavePathForPhase(phase)))
+            int expectedSize = GetPhaseGridSize(phase);
+            string path = GetSavePathForPhase(phase);
+
+            if (File.Exists(path))
             {
-                Debug.Log($"[LevelDataManager] Arquivo de save para a Fase {phase} não encontrado. Criando design padrão ou procedural...");
-                LevelSaveData defaultLevel = GenerateDefaultLevel(phase);
-                SaveLevel(phase, defaultLevel);
-                return defaultLevel;
+                try
+                {
+                    string json = File.ReadAllText(path);
+                    LevelSaveData data = JsonUtility.FromJson<LevelSaveData>(json);
+
+                    // Sincroniza se o arquivo em disco possuir dimensões legadas
+                    if (data != null && data.width == expectedSize && data.depth == expectedSize && data.tiles.Count == expectedSize * expectedSize)
+                    {
+                        Debug.Log($"[LevelDataManager] Nível da Fase {phase} ({data.width}x{data.depth}) carregado de: {path}");
+                        return data;
+                    }
+                    else
+                    {
+                        Debug.Log($"[LevelDataManager] Arquivo de save existente da Fase {phase} possui dimensões legadas. Recarregando do Cardinal ({expectedSize}x{expectedSize})...");
+                    }
+                }
+                catch (System.Exception ex)
+                {
+                    Debug.LogError($"[LevelDataManager] Erro ao carregar nível da Fase {phase}: {ex.Message}");
+                }
             }
 
-            try
-            {
-                string path = GetSavePathForPhase(phase);
-                string json = File.ReadAllText(path);
-                LevelSaveData data = JsonUtility.FromJson<LevelSaveData>(json);
-                Debug.Log($"[LevelDataManager] Nível da Fase {phase} carregado com sucesso de: {path}");
-                return data;
-            }
-            catch (System.Exception ex)
-            {
-                Debug.LogError($"[LevelDataManager] Erro ao carregar nível da Fase {phase}: {ex.Message}");
-                return null;
-            }
+            Debug.Log($"[LevelDataManager] Gerando design fiel da Fase {phase} a partir do JSON de época do Cardinal ({expectedSize}x{expectedSize})...");
+            LevelSaveData defaultLevel = GenerateDefaultLevel(phase);
+            SaveLevel(phase, defaultLevel);
+            return defaultLevel;
         }
 
         /// <summary>
-        /// Constrói a estrutura lógica e tropas para as fases. Fases 1 a 3 são curadas, fases superiores são procedurais.
+        /// Prepara os dados de salvamento da próxima fase transferindo os patos sobreviventes promovidos da época anterior.
+        /// </summary>
+        public static void PrepareNextPhaseWithSurvivors(int nextPhase, List<UnitSaveData> promotedSurvivors)
+        {
+            LevelSaveData levelData = LoadLevel(nextPhase);
+            if (levelData == null)
+            {
+                levelData = GenerateDefaultLevel(nextPhase);
+            }
+
+            int size = GetPhaseGridSize(nextPhase);
+
+            if (promotedSurvivors != null && promotedSurvivors.Count > 0)
+            {
+                // Remove patos antigos da fase
+                levelData.units.RemoveAll(u => u.faction == FactionType.Ducks);
+
+                // Posiciona os patos sobreviventes no flanco inicial do jogador (X=1)
+                int startZ = Mathf.Max(1, (size - (promotedSurvivors.Count * 2)) / 2);
+                for (int i = 0; i < promotedSurvivors.Count; i++)
+                {
+                    UnitSaveData duck = promotedSurvivors[i];
+                    duck.faction = FactionType.Ducks;
+                    duck.x = 1;
+                    duck.z = Mathf.Clamp(startZ + i * 2, 1, size - 2);
+                    levelData.units.Add(duck);
+                }
+            }
+
+            // Escala proporcionalmente os gansos inimigos para balancear o desafio da nova época
+            int recommendedEnemyLevel = GetEnemyLevelForPhase(nextPhase);
+            int recommendedEnemyRank = (int)GetEnemyRankForPhase(nextPhase);
+            foreach (var enemy in levelData.units)
+            {
+                if (enemy.faction == FactionType.Swans)
+                {
+                    enemy.level = recommendedEnemyLevel;
+                    enemy.rank = recommendedEnemyRank;
+                    enemy.currentHealth = 0; // Recalcula a nova vida cheia com base nos bônus de nível e patente
+                }
+            }
+
+            SaveLevel(nextPhase, levelData);
+            Debug.Log($"[LevelDataManager] Fase {nextPhase} configurada com {promotedSurvivors?.Count ?? 0} patos promovidos e inimigos escalonados para Nv.{recommendedEnemyLevel} (Rank {(MilitaryRank)recommendedEnemyRank})!");
+        }
+
+        /// <summary>
+        /// Constrói a estrutura do tabuleiro da fase recortando 100% dos dados dos JSONs de época exportados do Cardinal.
+        /// O código define exclusivamente as tropas e posições iniciais para a demo.
         /// </summary>
         private static LevelSaveData GenerateDefaultLevel(int phase)
         {
-            LevelSaveData data = new LevelSaveData();
-            data.heightStep = 0.5f;
+            int epochYear = GetEpochYearForPhase(phase);
+            int size = GetPhaseGridSize(phase);
 
-            if (phase == 1)
+            // Carrega o snapshot original da simulação física do Cardinal
+            LevelSaveData cardinalEpoch = LoadEpoch(epochYear);
+
+            LevelSaveData data = new LevelSaveData
             {
-                // Fase 1: Tutorial 10x10 planície suave
-                data.width = 10;
-                data.depth = 10;
-                
-                for (int x = 0; x < 10; x++)
-                {
-                    for (int z = 0; z < 10; z++)
-                    {
-                        int height = (x == 4 || x == 5) ? 1 : 0; // Pequeno relevo central
-                        data.tiles.Add(new TileSaveData { x = x, z = z, height = height, type = TerrainType.Field });
-                    }
-                }
+                width = size,
+                depth = size,
+                heightStep = cardinalEpoch != null && cardinalEpoch.heightStep > 0 ? cardinalEpoch.heightStep : 0.5f,
+                tiles = new List<TileSaveData>(),
+                units = new List<UnitSaveData>()
+            };
 
-                // 2 Patos (Aliados) - Um Guerreiro e Um Arqueiro, conforme solicitação do usuário
-                data.units.Add(new UnitSaveData { faction = FactionType.Ducks, className = "Warrior", x = 1, z = 3, currentHealth = 100 });
-                data.units.Add(new UnitSaveData { faction = FactionType.Ducks, className = "Archer", x = 1, z = 6, currentHealth = 100 });
-
-                // 2 Cisnes (Inimigos) - Um Guerreiro e Um Escudeiro
-                data.units.Add(new UnitSaveData { faction = FactionType.Swans, className = "Warrior", x = 8, z = 3, currentHealth = 100 });
-                data.units.Add(new UnitSaveData { faction = FactionType.Swans, className = "Squire", x = 8, z = 6, currentHealth = 100 });
-            }
-            else if (phase == 2)
+            // Recorta com fidelidade matemática a matriz size x size originária do Cardinal
+            if (cardinalEpoch != null && cardinalEpoch.tiles != null && cardinalEpoch.tiles.Count > 0)
             {
-                // Fase 2: Colinas 12x12
-                data.width = 12;
-                data.depth = 12;
-
-                for (int x = 0; x < 12; x++)
+                foreach (var t in cardinalEpoch.tiles)
                 {
-                    for (int z = 0; z < 12; z++)
+                    if (t.x < size && t.z < size)
                     {
-                        // Colina central de altura 2
-                        int height = 0;
-                        if (x >= 4 && x <= 7 && z >= 4 && z <= 7) height = 2;
-                        else if (x >= 2 && x <= 9 && z >= 2 && z <= 9) height = 1;
-
-                        TerrainType tType = height == 2 ? TerrainType.Forest : TerrainType.Field;
-                        data.tiles.Add(new TileSaveData { x = x, z = z, height = height, type = tType });
-                    }
-                }
-
-                // 3 Patos (Aliados) - Um de cada classe
-                data.units.Add(new UnitSaveData { faction = FactionType.Ducks, className = "Warrior", x = 1, z = 2, currentHealth = 100 });
-                data.units.Add(new UnitSaveData { faction = FactionType.Ducks, className = "Archer", x = 1, z = 6, currentHealth = 100 });
-                data.units.Add(new UnitSaveData { faction = FactionType.Ducks, className = "Squire", x = 1, z = 9, currentHealth = 100 });
-
-                // 3 Cisnes (Inimigos - um arquero na colina)
-                data.units.Add(new UnitSaveData { faction = FactionType.Swans, className = "Warrior", x = 10, z = 3, currentHealth = 100 });
-                data.units.Add(new UnitSaveData { faction = FactionType.Swans, className = "Archer", x = 9, z = 6, currentHealth = 100 });
-                data.units.Add(new UnitSaveData { faction = FactionType.Swans, className = "Squire", x = 10, z = 8, currentHealth = 100 });
-            }
-            else if (phase == 3)
-            {
-                // Fase 3: Desfiladeiro/Gargalo 15x15
-                data.width = 15;
-                data.depth = 15;
-
-                for (int x = 0; x < 15; x++)
-                {
-                    for (int z = 0; z < 15; z++)
-                    {
-                        // Gargalo vertical central (largura 3 de desfiladeiro, resto são montanhas de altura 3)
-                        int height = 3;
-                        if (z >= 6 && z <= 8)
+                        data.tiles.Add(new TileSaveData
                         {
-                            height = 1;
-                        }
-                        else if (z == 5 || z == 9)
-                        {
-                            height = 2; // Rampa suave nas margens
-                        }
-
-                        TerrainType tType = height == 3 ? TerrainType.Mountain : TerrainType.Field;
-                        data.tiles.Add(new TileSaveData { x = x, z = z, height = height, type = tType });
+                            x = t.x,
+                            z = t.z,
+                            height = t.height,
+                            type = t.type
+                        });
                     }
                 }
-
-                // 3 Patos (Aliados) - Um de cada classe
-                data.units.Add(new UnitSaveData { faction = FactionType.Ducks, className = "Warrior", x = 2, z = 3, currentHealth = 100 });
-                data.units.Add(new UnitSaveData { faction = FactionType.Ducks, className = "Archer", x = 2, z = 7, currentHealth = 100 });
-                data.units.Add(new UnitSaveData { faction = FactionType.Ducks, className = "Squire", x = 2, z = 11, currentHealth = 100 });
-
-                // 4 Cisnes (Inimigos - arqueiros na montanha defendendo a passagem)
-                data.units.Add(new UnitSaveData { faction = FactionType.Swans, className = "Archer", x = 8, z = 3, currentHealth = 100 });
-                data.units.Add(new UnitSaveData { faction = FactionType.Swans, className = "Warrior", x = 9, z = 7, currentHealth = 100 });
-                data.units.Add(new UnitSaveData { faction = FactionType.Swans, className = "Squire", x = 10, z = 7, currentHealth = 100 });
-                data.units.Add(new UnitSaveData { faction = FactionType.Swans, className = "Archer", x = 8, z = 11, currentHealth = 100 });
             }
             else
             {
-                // Procedural fallback para fases maiores (> 3)
-                data.width = 12;
-                data.depth = 12;
-
-                for (int x = 0; x < 12; x++)
+                // Fallback seguro caso o snapshot de época não seja localizado
+                for (int x = 0; x < size; x++)
                 {
-                    for (int z = 0; z < 12; z++)
+                    for (int z = 0; z < size; z++)
                     {
-                        int height = Random.Range(0, 3); // alturas 0, 1 ou 2
-                        data.tiles.Add(new TileSaveData { x = x, z = z, height = height, type = TerrainType.Field });
+                        data.tiles.Add(new TileSaveData { x = x, z = z, height = 1, type = TerrainType.Field });
                     }
                 }
+            }
 
-                // Spawna 3 Patos (Aliados) - Um de cada classe
-                data.units.Add(new UnitSaveData { faction = FactionType.Ducks, className = "Warrior", x = 1, z = 2, currentHealth = 100 });
-                data.units.Add(new UnitSaveData { faction = FactionType.Ducks, className = "Archer", x = 1, z = 6, currentHealth = 100 });
-                data.units.Add(new UnitSaveData { faction = FactionType.Ducks, className = "Squire", x = 1, z = 9, currentHealth = 100 });
+            // Define exclusivamente as tropas e suas posições para o Confronto 1 de cada fase da demo
+            if (phase == 1)
+            {
+                // Fase 1 (Ano 1 – Margens do Rio) | Grid 7x7: 3 Patos Recrutas vs 2 Gansos Recrutas
+                data.units.Add(new UnitSaveData { faction = FactionType.Ducks, className = "Warrior", x = 1, z = 1, currentHealth = 100, level = 1, rank = (int)MilitaryRank.Recruit });
+                data.units.Add(new UnitSaveData { faction = FactionType.Ducks, className = "Archer", x = 1, z = 3, currentHealth = 100, level = 1, rank = (int)MilitaryRank.Recruit });
+                data.units.Add(new UnitSaveData { faction = FactionType.Ducks, className = "Squire", x = 1, z = 5, currentHealth = 100, level = 1, rank = (int)MilitaryRank.Recruit });
 
-                // Spawna 3 Cisnes (Inimigos) - Um de cada classe
-                data.units.Add(new UnitSaveData { faction = FactionType.Swans, className = "Warrior", x = 10, z = 3, currentHealth = 100 });
-                data.units.Add(new UnitSaveData { faction = FactionType.Swans, className = "Archer", x = 10, z = 6, currentHealth = 100 });
-                data.units.Add(new UnitSaveData { faction = FactionType.Swans, className = "Squire", x = 10, z = 8, currentHealth = 100 });
+                data.units.Add(new UnitSaveData { faction = FactionType.Swans, className = "Warrior", x = 5, z = 2, currentHealth = 30, level = 1, rank = (int)MilitaryRank.Recruit });
+                data.units.Add(new UnitSaveData { faction = FactionType.Swans, className = "Squire", x = 5, z = 4, currentHealth = 30, level = 1, rank = (int)MilitaryRank.Recruit });
+            }
+            else if (phase == 2)
+            {
+                // Fase 2 (Ano 15 – Colinas de Outono) | Grid 10x10: 3 Patos Veteranos vs 3 Gansos Veteranos
+                data.units.Add(new UnitSaveData { faction = FactionType.Ducks, className = "Warrior", x = 1, z = 2, currentHealth = 0, level = 2, rank = (int)MilitaryRank.Veteran });
+                data.units.Add(new UnitSaveData { faction = FactionType.Ducks, className = "Archer", x = 1, z = 5, currentHealth = 0, level = 2, rank = (int)MilitaryRank.Veteran });
+                data.units.Add(new UnitSaveData { faction = FactionType.Ducks, className = "Squire", x = 1, z = 8, currentHealth = 0, level = 2, rank = (int)MilitaryRank.Veteran });
+
+                int enemyLvl = GetEnemyLevelForPhase(2); // Nv. 3
+                int enemyRnk = (int)GetEnemyRankForPhase(2); // Veteran
+                data.units.Add(new UnitSaveData { faction = FactionType.Swans, className = "Warrior", x = 8, z = 3, currentHealth = 0, level = enemyLvl, rank = enemyRnk });
+                data.units.Add(new UnitSaveData { faction = FactionType.Swans, className = "Archer", x = 8, z = 5, currentHealth = 0, level = enemyLvl, rank = enemyRnk });
+                data.units.Add(new UnitSaveData { faction = FactionType.Swans, className = "Squire", x = 8, z = 7, currentHealth = 0, level = enemyLvl, rank = enemyRnk });
+            }
+            else if (phase == 3)
+            {
+                // Fase 3 (Ano 30 – Desfiladeiro dos Gansos) | Grid 12x12: 3 Patos Elites vs 3 Gansos Elites
+                data.units.Add(new UnitSaveData { faction = FactionType.Ducks, className = "Warrior", x = 1, z = 4, currentHealth = 0, level = 3, rank = (int)MilitaryRank.Elite });
+                data.units.Add(new UnitSaveData { faction = FactionType.Ducks, className = "Archer", x = 1, z = 6, currentHealth = 0, level = 3, rank = (int)MilitaryRank.Elite });
+                data.units.Add(new UnitSaveData { faction = FactionType.Ducks, className = "Squire", x = 1, z = 8, currentHealth = 0, level = 3, rank = (int)MilitaryRank.Elite });
+
+                int enemyLvl = GetEnemyLevelForPhase(3); // Nv. 5
+                int enemyRnk = (int)GetEnemyRankForPhase(3); // Elite
+                data.units.Add(new UnitSaveData { faction = FactionType.Swans, className = "Warrior", x = 9, z = 4, currentHealth = 0, level = enemyLvl, rank = enemyRnk });
+                data.units.Add(new UnitSaveData { faction = FactionType.Swans, className = "Archer", x = 9, z = 6, currentHealth = 0, level = enemyLvl, rank = enemyRnk });
+                data.units.Add(new UnitSaveData { faction = FactionType.Swans, className = "Squire", x = 9, z = 8, currentHealth = 0, level = enemyLvl, rank = enemyRnk });
+            }
+            else
+            {
+                // Procedural fallback para fases adicionais (> 3)
+                int duckLvl = Mathf.Max(3, phase);
+                int duckRnk = (int)(phase >= 4 ? MilitaryRank.Commander : MilitaryRank.Elite);
+                data.units.Add(new UnitSaveData { faction = FactionType.Ducks, className = "Warrior", x = 1, z = 2, currentHealth = 0, level = duckLvl, rank = duckRnk });
+                data.units.Add(new UnitSaveData { faction = FactionType.Ducks, className = "Archer", x = 1, z = 5, currentHealth = 0, level = duckLvl, rank = duckRnk });
+                data.units.Add(new UnitSaveData { faction = FactionType.Ducks, className = "Squire", x = 1, z = 8, currentHealth = 0, level = duckLvl, rank = duckRnk });
+
+                int enemyLvl = GetEnemyLevelForPhase(phase);
+                int enemyRnk = (int)GetEnemyRankForPhase(phase);
+                data.units.Add(new UnitSaveData { faction = FactionType.Swans, className = "Warrior", x = size - 2, z = 3, currentHealth = 0, level = enemyLvl, rank = enemyRnk });
+                data.units.Add(new UnitSaveData { faction = FactionType.Swans, className = "Archer", x = size - 2, z = 5, currentHealth = 0, level = enemyLvl, rank = enemyRnk });
+                data.units.Add(new UnitSaveData { faction = FactionType.Swans, className = "Squire", x = size - 2, z = 7, currentHealth = 0, level = enemyLvl, rank = enemyRnk });
             }
 
             return data;

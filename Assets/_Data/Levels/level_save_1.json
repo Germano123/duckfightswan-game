@@ -1,0 +1,343 @@
+{
+    "width": 7,
+    "depth": 7,
+    "heightStep": 0.5,
+    "tiles": [
+        {
+            "x": 0,
+            "z": 0,
+            "height": 1,
+            "type": 3
+        },
+        {
+            "x": 0,
+            "z": 1,
+            "height": 1,
+            "type": 3
+        },
+        {
+            "x": 0,
+            "z": 2,
+            "height": 1,
+            "type": 3
+        },
+        {
+            "x": 0,
+            "z": 3,
+            "height": 1,
+            "type": 3
+        },
+        {
+            "x": 0,
+            "z": 4,
+            "height": 1,
+            "type": 3
+        },
+        {
+            "x": 0,
+            "z": 5,
+            "height": 1,
+            "type": 3
+        },
+        {
+            "x": 0,
+            "z": 6,
+            "height": 1,
+            "type": 3
+        },
+        {
+            "x": 1,
+            "z": 0,
+            "height": 1,
+            "type": 3
+        },
+        {
+            "x": 1,
+            "z": 1,
+            "height": 1,
+            "type": 3
+        },
+        {
+            "x": 1,
+            "z": 2,
+            "height": 1,
+            "type": 3
+        },
+        {
+            "x": 1,
+            "z": 3,
+            "height": 1,
+            "type": 3
+        },
+        {
+            "x": 1,
+            "z": 4,
+            "height": 1,
+            "type": 3
+        },
+        {
+            "x": 1,
+            "z": 5,
+            "height": 1,
+            "type": 3
+        },
+        {
+            "x": 1,
+            "z": 6,
+            "height": 1,
+            "type": 3
+        },
+        {
+            "x": 2,
+            "z": 0,
+            "height": 1,
+            "type": 5
+        },
+        {
+            "x": 2,
+            "z": 1,
+            "height": 1,
+            "type": 5
+        },
+        {
+            "x": 2,
+            "z": 2,
+            "height": 1,
+            "type": 3
+        },
+        {
+            "x": 2,
+            "z": 3,
+            "height": 1,
+            "type": 3
+        },
+        {
+            "x": 2,
+            "z": 4,
+            "height": 1,
+            "type": 3
+        },
+        {
+            "x": 2,
+            "z": 5,
+            "height": 1,
+            "type": 3
+        },
+        {
+            "x": 2,
+            "z": 6,
+            "height": 1,
+            "type": 3
+        },
+        {
+            "x": 3,
+            "z": 0,
+            "height": 1,
+            "type": 5
+        },
+        {
+            "x": 3,
+            "z": 1,
+            "height": 1,
+            "type": 5
+        },
+        {
+            "x": 3,
+            "z": 2,
+            "height": 1,
+            "type": 3
+        },
+        {
+            "x": 3,
+            "z": 3,
+            "height": 1,
+            "type": 3
+        },
+        {
+            "x": 3,
+            "z": 4,
+            "height": 1,
+            "type": 3
+        },
+        {
+            "x": 3,
+            "z": 5,
+            "height": 1,
+            "type": 3
+        },
+        {
+            "x": 3,
+            "z": 6,
+            "height": 1,
+            "type": 3
+        },
+        {
+            "x": 4,
+            "z": 0,
+            "height": 2,
+            "type": 5
+        },
+        {
+            "x": 4,
+            "z": 1,
+            "height": 1,
+            "type": 5
+        },
+        {
+            "x": 4,
+            "z": 2,
+            "height": 1,
+            "type": 3
+        },
+        {
+            "x": 4,
+            "z": 3,
+            "height": 1,
+            "type": 3
+        },
+        {
+            "x": 4,
+            "z": 4,
+            "height": 1,
+            "type": 3
+        },
+        {
+            "x": 4,
+            "z": 5,
+            "height": 1,
+            "type": 3
+        },
+        {
+            "x": 4,
+            "z": 6,
+            "height": 1,
+            "type": 3
+        },
+        {
+            "x": 5,
+            "z": 0,
+            "height": 2,
+            "type": 5
+        },
+        {
+            "x": 5,
+            "z": 1,
+            "height": 2,
+            "type": 5
+        },
+        {
+            "x": 5,
+            "z": 2,
+            "height": 2,
+            "type": 3
+        },
+        {
+            "x": 5,
+            "z": 3,
+            "height": 1,
+            "type": 3
+        },
+        {
+            "x": 5,
+            "z": 4,
+            "height": 1,
+            "type": 3
+        },
+        {
+            "x": 5,
+            "z": 5,
+            "height": 1,
+            "type": 3
+        },
+        {
+            "x": 5,
+            "z": 6,
+            "height": 1,
+            "type": 3
+        },
+        {
+            "x": 6,
+            "z": 0,
+            "height": 2,
+            "type": 0
+        },
+        {
+            "x": 6,
+            "z": 1,
+            "height": 2,
+            "type": 0
+        },
+        {
+            "x": 6,
+            "z": 2,
+            "height": 2,
+            "type": 5
+        },
+        {
+            "x": 6,
+            "z": 3,
+            "height": 1,
+            "type": 5
+        },
+        {
+            "x": 6,
+            "z": 4,
+            "height": 1,
+            "type": 3
+        },
+        {
+            "x": 6,
+            "z": 5,
+            "height": 1,
+            "type": 3
+        },
+        {
+            "x": 6,
+            "z": 6,
+            "height": 1,
+            "type": 3
+        }
+    ],
+    "units": [
+        {
+            "faction": 0,
+            "className": "Warrior",
+            "x": 3,
+            "z": 1,
+            "currentHealth": 100,
+            "level": 1,
+            "xp": 10,
+            "rank": 1
+        },
+        {
+            "faction": 0,
+            "className": "Archer",
+            "x": 3,
+            "z": 4,
+            "currentHealth": 97,
+            "level": 1,
+            "xp": 30,
+            "rank": 1
+        },
+        {
+            "faction": 0,
+            "className": "Squire",
+            "x": 3,
+            "z": 5,
+            "currentHealth": 97,
+            "level": 1,
+            "xp": 90,
+            "rank": 1
+        },
+        {
+            "faction": 1,
+            "className": "Warrior",
+            "x": 4,
+            "z": 1,
+            "currentHealth": 22,
+            "level": 1,
+            "xp": 20,
+            "rank": 1
+        }
+    ]
+}

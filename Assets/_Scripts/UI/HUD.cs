@@ -24,6 +24,16 @@ namespace DuckFightSwan.UI
         [Header("Controle de Fluxo")]
         [SerializeField] private Button startCombatButton;
 
+        public static HUD Instance { get; private set; }
+
+        private void Awake()
+        {
+            if (Instance == null)
+            {
+                Instance = this;
+            }
+        }
+
         private void Start()
         {
             // Vincula botões de velocidade (DIP)
@@ -61,7 +71,14 @@ namespace DuckFightSwan.UI
         {
             if (Core.MatchManager.Instance != null && phaseText != null)
             {
-                phaseText.text = $"Fase: {Core.MatchManager.Instance.CurrentPhase:00}";
+                if (Combat.StageWaveController.Instance != null && Core.MatchManager.Instance.CurrentPhase == 1)
+                {
+                    phaseText.text = $"Fase: 01 (Etapa {Combat.StageWaveController.Instance.CurrentStage}/{Combat.StageWaveController.Instance.MaxStages})";
+                }
+                else
+                {
+                    phaseText.text = $"Fase: {Core.MatchManager.Instance.CurrentPhase:00}";
+                }
             }
 
             if (coinsText != null)

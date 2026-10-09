@@ -18,6 +18,8 @@ MonoBehaviour:
   defense: 5
   damage: 10
   range: 1
+  movePoints: 3
+  maxClimbHeight: 1
   seekRange: 10
   attackCooldown: 1.5
   speed: 3

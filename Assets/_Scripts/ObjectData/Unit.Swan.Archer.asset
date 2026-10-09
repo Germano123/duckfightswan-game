@@ -12,12 +12,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 45858fb24462c604bb449547bedda10f, type: 3}
   m_Name: Unit.Swan.Archer
   m_EditorClassIdentifier: 
-  classType: 0
+  classType: 1
   modelPrefab: {fileID: 569662687756873524, guid: a1aec32180f9967428ec5d705d37b9a8, type: 3}
   maxHealth: 100
   defense: 5
-  damage: 10
-  range: 1
+  damage: 8
+  range: 3
+  movePoints: 3
+  maxClimbHeight: 2
   seekRange: 10
   attackCooldown: 1.5
   speed: 3

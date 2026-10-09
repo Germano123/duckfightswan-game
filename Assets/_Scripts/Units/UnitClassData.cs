@@ -22,6 +22,10 @@ namespace DuckFightSwan.Units
         [SerializeField] private int damage = 10;
         [SerializeField] private float range = 1.0f;
 
+        [Header("Atributos de Deslocamento e Relevo")]
+        [SerializeField] private int movePoints = 3;
+        [SerializeField] private int maxClimbHeight = 1;
+
         public UnitClassType ClassType => classType;
         public string ClassName => classType.ToString();
         public GameObject ModelPrefab => modelPrefab;
@@ -29,5 +33,7 @@ namespace DuckFightSwan.Units
         public int Defense => defense;
         public int Damage => damage;
         public float Range => range;
+        public int MovePoints => movePoints;
+        public int MaxClimbHeight => maxClimbHeight;
     }
 }

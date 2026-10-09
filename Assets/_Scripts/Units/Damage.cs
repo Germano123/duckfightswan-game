@@ -8,11 +8,13 @@ namespace DuckFightSwan.Units
     {
         public int Amount { get; }
         public IUnit Source { get; }
+        public bool IsCritical { get; set; }
 
-        public Damage(int amount, IUnit source)
+        public Damage(int amount, IUnit source, bool isCritical = false)
         {
             Amount = amount;
             Source = source;
+            IsCritical = isCritical;
         }
     }
 }

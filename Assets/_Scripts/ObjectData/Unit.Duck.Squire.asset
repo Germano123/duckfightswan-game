@@ -12,12 +12,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 45858fb24462c604bb449547bedda10f, type: 3}
   m_Name: Unit.Duck.Squire
   m_EditorClassIdentifier: 
-  classType: 0
+  classType: 2
   modelPrefab: {fileID: 4462645834217686263, guid: abe75e3a55a8f584188e2164504082ce, type: 3}
   maxHealth: 100
   defense: 5
   damage: 10
   range: 1
+  movePoints: 4
+  maxClimbHeight: 2
   seekRange: 10
   attackCooldown: 1.5
   speed: 3

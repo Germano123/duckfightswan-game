@@ -22,11 +22,17 @@ namespace DuckFightSwan.Core
         private readonly List<GameObject> activeDucks = new List<GameObject>();
         private readonly List<GameObject> activeSwans = new List<GameObject>();
 
+        [Header("Controle de Interface de Turnos")]
+        [SerializeField] private UnityEngine.UI.Button endTurnButton;
+        [SerializeField] private TMPro.TextMeshProUGUI endTurnButtonText;
+
         public int CurrentPhase => currentPhase;
         public bool IsSimulationActive => isSimulationActive;
         public bool IsEnemyTurn { get; private set; }
         public int ActiveDucksCount => activeDucks.Count;
         public int ActiveSwansCount => activeSwans.Count;
+        public List<GameObject> ActiveDucks => activeDucks;
+        public List<GameObject> ActiveSwans => activeSwans;
 
         // Callbacks de morte (SRP/DIP/Observer)
         public static event System.Action OnDuckDied;
@@ -48,12 +54,153 @@ namespace DuckFightSwan.Core
             }
         }
 
+        private void Start()
+        {
+            if (endTurnButton == null)
+            {
+                GameObject btnObj = GameObject.Find("Button (3)");
+                if (btnObj != null)
+                {
+                    endTurnButton = btnObj.GetComponent<UnityEngine.UI.Button>();
+                    endTurnButtonText = btnObj.GetComponentInChildren<TMPro.TextMeshProUGUI>();
+                }
+            }
+
+            if (endTurnButton != null)
+            {
+                endTurnButton.onClick.RemoveListener(EndTurn);
+                endTurnButton.onClick.AddListener(EndTurn);
+            }
+
+            if (GetComponent<EnemyAIController>() == null)
+            {
+                gameObject.AddComponent<EnemyAIController>();
+            }
+        }
+
+        private void Update()
+        {
+            if (Input.GetKeyDown(KeyCode.F1))
+            {
+                HandleDebugF1();
+            }
+        }
+
         /// <summary>
-        /// Coloca a partida em modo de preparação.
+        /// Método de Debug acionado por F1:
+        /// 1. Se houver cisnes inimigos vivos, elimina todos instantaneamente com dano massivo para avançar de etapa/onda.
+        /// 2. Se todos os cisnes já foram eliminados ou a fase foi concluída, avança diretamente para a próxima fase com promoção dos patos.
+        /// </summary>
+        public void HandleDebugF1()
+        {
+            if (activeSwans.Count > 0)
+            {
+                Debug.Log($"[MatchManager] [DEBUG F1] Eliminando {activeSwans.Count} cisnes inimigos ativos...");
+                List<GameObject> swansToKill = new List<GameObject>(activeSwans);
+                foreach (var swan in swansToKill)
+                {
+                    if (swan != null)
+                    {
+                        Unit u = swan.GetComponent<Unit>();
+                        if (u != null && u.Health != null && !u.Health.IsDead)
+                        {
+                            u.Health.TakeDamage(new Damage(9999, null));
+                        }
+                    }
+                }
+            }
+            else
+            {
+                Debug.Log("[MatchManager] [DEBUG F1] Sem inimigos ativos. Avançando para a próxima fase com promoção militar...");
+                AdvanceToNextPhaseWithPromotion();
+            }
+        }
+
+        /// <summary>
+        /// Avança para a próxima fase / época, coletando os patos sobreviventes, promovendo-os para o próximo nível e patente militar.
+        /// </summary>
+        public void AdvanceToNextPhaseWithPromotion()
+        {
+            List<UnitSaveData> promotedSurvivors = new List<UnitSaveData>();
+
+            // Coleta os patos atualmente sobreviventes
+            foreach (var duckObj in activeDucks)
+            {
+                if (duckObj != null)
+                {
+                    Unit unit = duckObj.GetComponent<Unit>();
+                    if (unit != null && !unit.Health.IsDead)
+                    {
+                        MilitaryRank nextRank = unit.CurrentRank;
+                        if (nextRank == MilitaryRank.Recruit) nextRank = MilitaryRank.Veteran;
+                        else if (nextRank == MilitaryRank.Veteran) nextRank = MilitaryRank.Elite;
+                        else if (nextRank == MilitaryRank.Elite) nextRank = MilitaryRank.Commander;
+
+                        promotedSurvivors.Add(new UnitSaveData
+                        {
+                            faction = FactionType.Ducks,
+                            className = unit.ClassData != null ? unit.ClassData.ClassName : "Warrior",
+                            x = unit.CurrentTile != null ? unit.CurrentTile.X : 1,
+                            z = unit.CurrentTile != null ? unit.CurrentTile.Z : 2,
+                            currentHealth = 0, // Será restaurado para o novo MaxHealth pelo spawner
+                            level = unit.CurrentLevel + 1, // Ganha +1 nível pelo triunfo da época
+                            xp = 0,
+                            rank = (int)nextRank
+                        });
+                    }
+                }
+            }
+
+            // Fallback se não sobrou nenhum pato
+            if (promotedSurvivors.Count == 0)
+            {
+                promotedSurvivors.Add(new UnitSaveData { faction = FactionType.Ducks, className = "Warrior", level = 2, rank = (int)MilitaryRank.Veteran });
+                promotedSurvivors.Add(new UnitSaveData { faction = FactionType.Ducks, className = "Archer", level = 2, rank = (int)MilitaryRank.Veteran });
+                promotedSurvivors.Add(new UnitSaveData { faction = FactionType.Ducks, className = "Squire", level = 2, rank = (int)MilitaryRank.Veteran });
+            }
+
+            int nextPhase = currentPhase + 1;
+
+            // Salva os sobreviventes promovidos para a próxima fase
+            LevelDataManager.PrepareNextPhaseWithSurvivors(nextPhase, promotedSurvivors);
+
+            // Atualiza o perfil geral do jogador
+            PlayerProfileData profile = LevelDataManager.LoadProfile();
+            profile.currentPhase = nextPhase;
+            profile.coins += 100;
+            LevelDataManager.SaveProfile(profile);
+
+            currentPhase = nextPhase;
+
+            // Destrói objetos antigos de tropas da cena para carregar a nova fase limpa
+            foreach (var d in new List<GameObject>(activeDucks)) if (d != null) Destroy(d);
+            foreach (var s in new List<GameObject>(activeSwans)) if (s != null) Destroy(s);
+            activeDucks.Clear();
+            activeSwans.Clear();
+
+            // Prepara e inicializa a nova fase
+            PrepareMatch();
+            StartMatch();
+
+            // Atualiza HUD e banner de nova época
+            if (UI.HUD.Instance != null)
+            {
+                UI.HUD.Instance.UpdateHUDValues();
+            }
+
+            int epochYear = LevelDataManager.GetEpochYearForPhase(currentPhase);
+            if (Combat.StageWaveController.Instance != null)
+            {
+                Combat.StageWaveController.Instance.ShowBanner($"⏳ NOVA ÉPOCA ALCANÇADA! (Ano {epochYear}) ⏳\nPatos promovidos a Veteranos! Inimigos de alto nível entram na batalha!", 4.5f);
+            }
+        }
+
+        /// <summary>
+        /// Coloca a partida em modo de preparação e ativa a simulação para combate.
         /// </summary>
         public void PrepareMatch()
         {
-            isSimulationActive = false;
+            isSimulationActive = true;
             IsEnemyTurn = false;
             activeDucks.Clear();
             activeSwans.Clear();
@@ -74,6 +221,11 @@ namespace DuckFightSwan.Core
                 {
                     SpawnManager.Instance.SpawnTeamsFromSave(saveData.units);
                 }
+            }
+
+            if (Combat.StageWaveController.Instance != null)
+            {
+                Combat.StageWaveController.Instance.ResetStages();
             }
 
             int epochYear = LevelDataManager.GetEpochYearForPhase(currentPhase);
@@ -164,6 +316,35 @@ namespace DuckFightSwan.Core
             isSimulationActive = true;
             Debug.Log($"[MatchManager] Partida da Fase {currentPhase} iniciada. Combatentes -> Patos: {activeDucks.Count} | Cisnes: {activeSwans.Count}");
             GameManager.Instance.ChangeState(GameState.Combat);
+            StartCoroutine(RoutineSelectInitialDuck());
+        }
+
+        private System.Collections.IEnumerator RoutineSelectInitialDuck()
+        {
+            yield return null; // Aguarda a inicialização e posicionamento das unidades no tabuleiro
+            SelectFirstAvailableDuckAndFocus();
+        }
+
+        /// <summary>
+        /// Seleciona o primeiro pato vivo com ações disponíveis, focando a câmera e abrindo o menu de ações táticas.
+        /// </summary>
+        public void SelectFirstAvailableDuckAndFocus()
+        {
+            if (activeDucks == null || activeDucks.Count == 0) return;
+
+            foreach (var duckObj in activeDucks)
+            {
+                if (duckObj == null) continue;
+                Unit duck = duckObj.GetComponent<Unit>();
+                if (duck != null && duck.Health != null && !duck.Health.IsDead && duck.RemainingActions > 0)
+                {
+                    if (InputGridController.Instance != null)
+                    {
+                        InputGridController.Instance.SelectUnit(duck, openUI: true);
+                    }
+                    break;
+                }
+            }
         }
 
         /// <summary>
@@ -220,7 +401,14 @@ namespace DuckFightSwan.Core
             }
             else if (activeSwans.Count == 0)
             {
-                EndMatch(playerWon: true); // Patos do jogador venceram
+                if (Combat.StageWaveController.Instance != null && Combat.StageWaveController.Instance.HasNextStage())
+                {
+                    Combat.StageWaveController.Instance.AdvanceToNextStage();
+                }
+                else
+                {
+                    EndMatch(playerWon: true); // Patos do jogador venceram
+                }
             }
         }
 
@@ -256,9 +444,14 @@ namespace DuckFightSwan.Core
         /// </summary>
         public void EndTurn()
         {
-            if (!isSimulationActive || IsEnemyTurn) return;
+            if (!isSimulationActive)
+            {
+                StartMatch();
+            }
 
-            // Deseleciona qualquer unidade e limpa menus de ação abertos antes de passar a vez
+            if (IsEnemyTurn) return;
+
+            // Desseleciona qualquer unidade e fecha menus de ação
             if (InputGridController.Instance != null)
             {
                 InputGridController.Instance.Deselect();
@@ -272,14 +465,22 @@ namespace DuckFightSwan.Core
             IsEnemyTurn = true;
             Debug.Log("[MatchManager] Turno do Inimigo Iniciado.");
 
+            if (endTurnButton != null)
+            {
+                endTurnButton.interactable = false;
+                if (endTurnButtonText != null) endTurnButtonText.text = "Turno Inimigo...";
+            }
+
             // Desativa temporariamente interações da câmera
             if (CameraController.Instance != null)
             {
                 CameraController.Instance.ClearFocus();
             }
 
+            // Garante que o componente de IA esteja ativo
+            EnemyAIController ai = EnemyAIController.Instance ?? GetComponent<EnemyAIController>() ?? gameObject.AddComponent<EnemyAIController>();
+
             // Executa a ação de cada Cisne vivo sequencialmente
-            // Criamos uma cópia da lista de objetos para evitar erros de modificação concorrente
             List<GameObject> enemiesToProcess = new List<GameObject>(activeSwans);
 
             foreach (var swanObj in enemiesToProcess)
@@ -294,37 +495,10 @@ namespace DuckFightSwan.Core
                     CameraController.Instance.FocusOn(swan.transform);
                 }
 
-                // Encontra o Pato mais próximo
-                Unit target = FindNearestDuck(swan);
-                if (target != null)
-                {
-                    float distance = Vector3.Distance(swan.transform.position, target.transform.position);
-                    float range = swan.UnitStats.Range;
+                yield return new WaitForSeconds(0.3f);
 
-                    if (distance <= range)
-                    {
-                        // Ataca se estiver ao alcance!
-                        int rawDamage = swan.UnitStats.Damage;
-                        Debug.Log($"[MatchManager] IA: {swan.UnitName} atacando {target.UnitName}.");
-                        target.Health.TakeDamage(new Damage(rawDamage, swan));
-                    }
-                    else
-                    {
-                        // Move-se 1 casa na direção do alvo
-                        TileNode nextTile = FindNextTileTowards(swan.CurrentTile, target.CurrentTile);
-                        if (nextTile != null && nextTile.CurrentUnit == null)
-                        {
-                            swan.CurrentTile.CurrentUnit = null; // Libera bloco antigo
-                            swan.CurrentTile = nextTile;
-                            nextTile.CurrentUnit = swan; // Ocupa novo bloco
-
-                            swan.SetMoveTarget(nextTile.GetTopPosition());
-                            Debug.Log($"[MatchManager] IA: {swan.UnitName} moveu-se para ({nextTile.X}, {nextTile.Z})");
-                        }
-                    }
-                }
-
-                yield return new WaitForSeconds(0.8f); // Pequeno atraso dramático/visual
+                // Executa as ações de avanço, recuo ou ataque do cisne via IA
+                yield return StartCoroutine(ai.ExecuteSwanTurn(swan, activeDucks));
             }
 
             // Retorna o foco geral da câmera
@@ -346,7 +520,17 @@ namespace DuckFightSwan.Core
 
             IsEnemyTurn = false;
             Debug.Log("[MatchManager] Turno do Jogador Iniciado. Ações restauradas.");
+
+            if (endTurnButton != null)
+            {
+                endTurnButton.interactable = true;
+                if (endTurnButtonText != null) endTurnButtonText.text = "Finalizar turno";
+            }
+
             SaveCurrentState();
+
+            // Seleciona a primeira personagem do jogador disponível e foca a câmera ao iniciar o turno do jogador
+            SelectFirstAvailableDuckAndFocus();
         }
 
         private Unit FindNearestDuck(Unit swan)

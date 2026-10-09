@@ -12,9 +12,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 45858fb24462c604bb449547bedda10f, type: 3}
   m_Name: Unit.Duck.Archer
   m_EditorClassIdentifier: 
-  classType: 0
+  classType: 1
   modelPrefab: {fileID: 4462645834217686263, guid: abe75e3a55a8f584188e2164504082ce, type: 3}
   maxHealth: 100
   defense: 5
   damage: 8
   range: 3
+  movePoints: 3
+  maxClimbHeight: 2

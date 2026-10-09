@@ -290,7 +290,7 @@ namespace Cardinal.TerrainEngine.Core
                 }
 
                 float bestAffinity = -1f;
-                CardinalBiomeType bestType = CardinalBiomeType.FieldOrPlains();
+                CardinalBiomeType bestType = CardinalBiomeType.Savanna;
                 float totalAffinity = 0f;
 
                 for (int b = 0; b < 7; b++)
@@ -324,10 +324,5 @@ namespace Cardinal.TerrainEngine.Core
             if (val < optLow) return (val - min) / (optLow - min);
             return (max - val) / (max - optHigh);
         }
-    }
-
-    public static class CardinalBiomeExtensions
-    {
-        public static CardinalBiomeType FieldOrPlains(this CardinalBiomeType type) => CardinalBiomeType.Savanna;
     }
 }

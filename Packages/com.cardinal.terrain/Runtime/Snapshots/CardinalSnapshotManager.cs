@@ -46,60 +46,63 @@ namespace Cardinal.TerrainEngine.Snapshots
         }
 
         /// <summary>
-        /// Gera uma malha de snapshot reamostrada para a dimensão do grid de jogo.
+        /// Gera uma malha de snapshot reamostrada para a dimensão do grid de jogo,
+        /// com suporte opcional a subgrid NxN e algoritmo de Stitched Nodes.
         /// </summary>
-        public CardinalSnapshotData CaptureSnapshot(int targetWidth, int targetDepth, float heightStep = 0.5f, int maxElevation = 3)
+        public CardinalSnapshotData CaptureSnapshot(
+            int macroWidth, 
+            int macroDepth, 
+            float heightStep = 0.5f, 
+            int maxElevation = 3,
+            int subgridN = 1,
+            bool enableStitching = true,
+            bool enableBiomeBlending = true)
         {
-            var snapshot = new CardinalSnapshotData
+            int n = Mathf.Max(1, subgridN);
+            int finalWidth = macroWidth * n;
+            int finalDepth = macroDepth * n;
+
+            StitchedSubgridConfig config = new StitchedSubgridConfig
             {
-                width = targetWidth,
-                depth = targetDepth,
+                subgridN = n,
                 heightStep = heightStep,
-                tiles = new List<ClassifiedTile>()
+                maxElevation = maxElevation,
+                enableHeightStitching = enableStitching,
+                enableBiomeBlending = enableBiomeBlending,
+                heightSmoothingFactor = 0.75f
             };
 
-            int[] biomeIndices = new int[simulation.DominantBiome.Length];
-            for (int i = 0; i < biomeIndices.Length; i++)
+            List<ClassifiedTile> tiles = CardinalStitchedSubgridGenerator.GenerateFromSimulation(
+                simulation, macroWidth, macroDepth, config);
+
+            return new CardinalSnapshotData
             {
-                biomeIndices[i] = (int)simulation.DominantBiome[i];
-            }
-
-            for (int z = 0; z < targetDepth; z++)
-            {
-                for (int x = 0; x < targetWidth; x++)
-                {
-                    float u = (float)x / Mathf.Max(1, targetWidth - 1);
-                    float v = (float)z / Mathf.Max(1, targetDepth - 1);
-
-                    SampledCellData sampled = CardinalTerrainSampler.SampleBilinear(
-                        simulation.Altitude,
-                        simulation.SurfaceWater,
-                        simulation.SoilMoisture,
-                        simulation.TotalBiomass,
-                        biomeIndices,
-                        simulation.TotalWindowResolution,
-                        u, v
-                    );
-
-                    ClassifiedTile tile = CardinalTerrainClassifier.Classify(x, z, sampled, maxElevation);
-                    snapshot.tiles.Add(tile);
-                }
-            }
-
-            return snapshot;
+                width = finalWidth,
+                depth = finalDepth,
+                heightStep = heightStep,
+                tiles = tiles
+            };
         }
 
         /// <summary>
-        /// Avança a simulação por um número de ticks e captura a nova época.
+        /// Avança a simulação por um número de ticks e captura a nova época com subgrid NxN.
         /// </summary>
-        public CardinalSnapshotData StepAndCapture(int ticksCount, int targetWidth, int targetDepth, float heightStep = 0.5f, int maxElevation = 3)
+        public CardinalSnapshotData StepAndCapture(
+            int ticksCount, 
+            int macroWidth, 
+            int macroDepth, 
+            float heightStep = 0.5f, 
+            int maxElevation = 3,
+            int subgridN = 1,
+            bool enableStitching = true,
+            bool enableBiomeBlending = true)
         {
             if (ticksCount > 0)
             {
                 simulation.TickSimulation(cellY, ticksCount);
             }
 
-            return CaptureSnapshot(targetWidth, targetDepth, heightStep, maxElevation);
+            return CaptureSnapshot(macroWidth, macroDepth, heightStep, maxElevation, subgridN, enableStitching, enableBiomeBlending);
         }
 
         /// <summary>
@@ -111,7 +114,10 @@ namespace Cardinal.TerrainEngine.Snapshots
             int depth, 
             string outputDirectory,
             float heightStep = 0.5f,
-            int maxElevation = 3)
+            int maxElevation = 3,
+            int subgridN = 1,
+            bool enableStitching = true,
+            bool enableBiomeBlending = true)
         {
             var results = new List<CardinalSnapshotData>();
 
@@ -123,7 +129,7 @@ namespace Cardinal.TerrainEngine.Snapshots
             for (int i = 0; i < epochs.Count; i++)
             {
                 var epoch = epochs[i];
-                var snapshot = StepAndCapture(epoch.ticksToSimulate, width, depth, heightStep, maxElevation);
+                var snapshot = StepAndCapture(epoch.ticksToSimulate, width, depth, heightStep, maxElevation, subgridN, enableStitching, enableBiomeBlending);
                 snapshot.year = epoch.year;
                 snapshot.epochName = epoch.epochName;
                 results.Add(snapshot);

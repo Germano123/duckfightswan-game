@@ -21,6 +21,11 @@ namespace Cardinal.TerrainEngine.Editor
         private int maxElevation = 3;
         private float heightStep = 0.5f;
 
+        [Header("Configurações de Stitched Subgrid (NxN)")]
+        private int subgridN = 2;
+        private bool enableHeightStitching = true;
+        private bool enableBiomeBlending = true;
+
         [Header("Épocas e Saltos Temporais")]
         private readonly List<EpochConfig> epochs = new List<EpochConfig>
         {
@@ -40,6 +45,16 @@ namespace Cardinal.TerrainEngine.Editor
             window.Show();
         }
 
+        [MenuItem("Window/Cardinal/Bake Snapshots (2x2 Subgrid)")]
+        public static void BakeSnapshotsBatch()
+        {
+            var window = GetWindow<CardinalTerrainEditorWindow>("Cardinal Terrain");
+            window.subgridN = 2;
+            window.enableHeightStitching = true;
+            window.enableBiomeBlending = true;
+            window.BakeAllSnapshots();
+        }
+
         private void OnGUI()
         {
             scrollPos = EditorGUILayout.BeginScrollView(scrollPos);
@@ -47,7 +62,7 @@ namespace Cardinal.TerrainEngine.Editor
             EditorGUILayout.Space(8);
             EditorGUILayout.LabelField("Cardinal System: Terrain Dev Tools", EditorStyles.boldLabel);
             EditorGUILayout.HelpBox(
-                "Gera tabuleiros táticos para Duck Fight Swans a partir da simulação causal do Cardinal em segundo plano.", 
+                "Gera tabuleiros táticos para Duck Fight Swans a partir da simulação causal do Cardinal em segundo plano, com suporte a Subgrid NxN e Nós Costurados (Stitched Nodes).", 
                 MessageType.Info);
 
             EditorGUILayout.Space(10);
@@ -57,11 +72,21 @@ namespace Cardinal.TerrainEngine.Editor
             macroY = EditorGUILayout.IntSlider("Coordenada Y (Latitude)", macroY, 0, 49);
 
             EditorGUILayout.Space(10);
-            EditorGUILayout.LabelField("2. Dimensões do Tabuleiro (Unity)", EditorStyles.boldLabel);
-            boardWidth = EditorGUILayout.IntSlider("Largura (X)", boardWidth, 8, 30);
-            boardDepth = EditorGUILayout.IntSlider("Profundidade (Z)", boardDepth, 8, 30);
+            EditorGUILayout.LabelField("2. Dimensões Macro & Subgrid NxN (Unity)", EditorStyles.boldLabel);
+            boardWidth = EditorGUILayout.IntSlider("Largura Macro (X)", boardWidth, 6, 25);
+            boardDepth = EditorGUILayout.IntSlider("Profundidade Macro (Z)", boardDepth, 6, 25);
             maxElevation = EditorGUILayout.IntSlider("Altura Máxima dos Blocos", maxElevation, 1, 5);
             heightStep = EditorGUILayout.FloatField("Degrau Vertical (HeightStep)", heightStep);
+
+            EditorGUILayout.Space(4);
+            EditorGUILayout.LabelField("Parâmetros do Subgrid & Nós Costurados:", EditorStyles.miniBoldLabel);
+            subgridN = EditorGUILayout.IntSlider("Subgrid por Tile (NxN)", subgridN, 1, 4);
+            enableHeightStitching = EditorGUILayout.Toggle("Costura Suave de Relevo", enableHeightStitching);
+            enableBiomeBlending = EditorGUILayout.Toggle("Transição Ecológica de Biomas", enableBiomeBlending);
+
+            int finalW = boardWidth * subgridN;
+            int finalD = boardDepth * subgridN;
+            EditorGUILayout.HelpBox($"Escala Final: Macro {boardWidth}x{boardDepth} -> Subgrid {subgridN}x{subgridN} = {finalW}x{finalD} tiles ({finalW * finalD} nós táticos no jogo).", MessageType.Info);
 
             EditorGUILayout.Space(10);
             EditorGUILayout.LabelField("3. Épocas da Campanha (Snapshots Temporais)", EditorStyles.boldLabel);
@@ -75,15 +100,25 @@ namespace Cardinal.TerrainEngine.Editor
             }
 
             EditorGUILayout.Space(15);
-            EditorGUILayout.LabelField("4. Ações de Geração", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField("4. Ações de Geração & Pré-Visualização", EditorStyles.boldLabel);
 
-            if (GUILayout.Button("Visualizar Ano 1 na Cena (Preview)", GUILayout.Height(32)))
+            EditorGUILayout.BeginHorizontal();
+            if (GUILayout.Button("Preview Ano 1", GUILayout.Height(30)))
             {
                 PreviewInScene(0);
             }
+            if (GUILayout.Button("Preview Ano 15", GUILayout.Height(30)))
+            {
+                PreviewInScene(1);
+            }
+            if (GUILayout.Button("Preview Ano 30", GUILayout.Height(30)))
+            {
+                PreviewInScene(2);
+            }
+            EditorGUILayout.EndHorizontal();
 
-            EditorGUILayout.Space(4);
-            if (GUILayout.Button("Bake e Exportar Snapshots para Duck Fight Swans", GUILayout.Height(40)))
+            EditorGUILayout.Space(6);
+            if (GUILayout.Button("Bake e Exportar Todos os Snapshots (.JSON)", GUILayout.Height(38)))
             {
                 BakeAllSnapshots();
             }
@@ -98,41 +133,58 @@ namespace Cardinal.TerrainEngine.Editor
         {
             if (GridManager.Instance == null)
             {
-                statusMessage = "Aviso: GridManager não encontrado na cena atual. Abra SampleScene para visualizar.";
+                statusMessage = "Aviso: GridManager não encontrado na cena atual. Abra uma cena com GridManager para visualizar.";
                 return;
             }
 
             var manager = new CardinalSnapshotManager((uint)macroX, (uint)macroY, (uint)seed);
-            int ticks = (epochIndex < epochs.Count) ? epochs[epochIndex].ticksToSimulate : 0;
-            var snapshot = manager.StepAndCapture(ticks, boardWidth, boardDepth, heightStep, maxElevation);
+            CardinalSnapshotData snapshot = null;
 
-            LevelSaveData saveData = ConvertToLevelSaveData(snapshot);
-            GridManager.Instance.GenerateGrid(saveData);
+            // Avança cumulativamente a simulação até a época solicitada
+            for (int i = 0; i <= epochIndex && i < epochs.Count; i++)
+            {
+                int ticks = epochs[i].ticksToSimulate;
+                snapshot = manager.StepAndCapture(ticks, boardWidth, boardDepth, heightStep, maxElevation, subgridN, enableHeightStitching, enableBiomeBlending);
+            }
 
-            statusMessage = $"Preview gerado com sucesso no GridManager ({boardWidth}x{boardDepth})!";
+            if (snapshot != null)
+            {
+                LevelSaveData saveData = ConvertToLevelSaveData(snapshot);
+                GridManager.Instance.GenerateGrid(saveData);
+
+                string epName = (epochIndex < epochs.Count) ? epochs[epochIndex].epochName : $"Época {epochIndex + 1}";
+                statusMessage = $"Preview da '{epName}' gerado com sucesso no GridManager ({snapshot.width}x{snapshot.depth})!";
+            }
         }
 
         private void BakeAllSnapshots()
         {
+            string outputDir = Path.Combine(Application.dataPath, "_Data", "Epochs");
+            if (!Directory.Exists(outputDir)) Directory.CreateDirectory(outputDir);
+
             var manager = new CardinalSnapshotManager((uint)macroX, (uint)macroY, (uint)seed);
-            string outputDir = Application.dataPath;
 
             for (int i = 0; i < epochs.Count; i++)
             {
                 var epoch = epochs[i];
-                var snapshot = manager.StepAndCapture(epoch.ticksToSimulate, boardWidth, boardDepth, heightStep, maxElevation);
+                var snapshot = manager.StepAndCapture(epoch.ticksToSimulate, boardWidth, boardDepth, heightStep, maxElevation, subgridN, enableHeightStitching, enableBiomeBlending);
                 snapshot.year = epoch.year;
                 snapshot.epochName = epoch.epochName;
 
                 LevelSaveData saveData = ConvertToLevelSaveData(snapshot);
 
-                // Adiciona tropas padrão na fase 1
+                // Adiciona tropas padrão na fase 1 posicionadas no centro das macro-células
                 if (i == 0)
                 {
-                    saveData.units.Add(new UnitSaveData { faction = FactionType.Ducks, className = "Warrior", x = 1, z = 3, currentHealth = 100 });
-                    saveData.units.Add(new UnitSaveData { faction = FactionType.Ducks, className = "Archer", x = 1, z = 6, currentHealth = 100 });
-                    saveData.units.Add(new UnitSaveData { faction = FactionType.Swans, className = "Warrior", x = boardWidth - 2, z = 3, currentHealth = 100 });
-                    saveData.units.Add(new UnitSaveData { faction = FactionType.Swans, className = "Squire", x = boardWidth - 2, z = 6, currentHealth = 100 });
+                    int duckX = 1 * subgridN + subgridN / 2;
+                    int swanX = (boardWidth - 2) * subgridN + subgridN / 2;
+                    int z1 = 3 * subgridN + subgridN / 2;
+                    int z2 = 6 * subgridN + subgridN / 2;
+
+                    saveData.units.Add(new UnitSaveData { faction = FactionType.Ducks, className = "Warrior", x = duckX, z = z1, currentHealth = 100 });
+                    saveData.units.Add(new UnitSaveData { faction = FactionType.Ducks, className = "Archer", x = duckX, z = z2, currentHealth = 100 });
+                    saveData.units.Add(new UnitSaveData { faction = FactionType.Swans, className = "Warrior", x = swanX, z = z1, currentHealth = 100 });
+                    saveData.units.Add(new UnitSaveData { faction = FactionType.Swans, className = "Squire", x = swanX, z = z2, currentHealth = 100 });
                 }
 
                 int phaseNumber = i + 1;
@@ -144,7 +196,7 @@ namespace Cardinal.TerrainEngine.Editor
             }
 
             AssetDatabase.Refresh();
-            statusMessage = $"Sucesso! {epochs.Count} snapshots exportados para as fases 1 a {epochs.Count} em {outputDir}.";
+            statusMessage = $"Sucesso! {epochs.Count} snapshots exportados com Subgrid {subgridN}x{subgridN} ({boardWidth * subgridN}x{boardDepth * subgridN}) em {outputDir}.";
         }
 
         private LevelSaveData ConvertToLevelSaveData(CardinalSnapshotData snapshot)
